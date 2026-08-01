@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { width: 220px; font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #0b1120; color: #f8fafc; margin: 0; padding: 20px; text-align: center; }
+    h2 { font-size: 15px; color: #10b981; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 1px; }
+    p { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+    
+    /* Big Master Switch */
+    .switch { position: relative; display: inline-block; width: 60px; height: 34px; margin-bottom: 10px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1e293b; transition: .4s; border-radius: 34px; border: 2px solid #334155; }
+    .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 2px; bottom: 2px; background-color: #64748b; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #10b981; border-color: #059669; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+    input:checked + .slider:before { transform: translateX(26px); background-color: #fff; }
+    
+    #status-text { font-size: 14px; font-weight: bold; color: #ef4444; }
+    #status-text.active { color: #10b981; }
+  </style>
+</head>
+<body>
+  <h2>Bet Engine Pro</h2>
+  <p>Master Power Control</p>
+  
+  <label class="switch">
+    <input type="checkbox" id="masterToggle">
+    <span class="slider"></span>
+  </label>
+  
+  <div id="status-text">SYSTEM OFF</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
