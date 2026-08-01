@@ -10,7 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   masterToggle.addEventListener('change', (e) => {
     const isActive = e.target.checked;
-    chrome.storage.local.set({ isActive: isActive });
+    if (!isActive) {
+      chrome.storage.local.set({ isActive: isActive, autoPlace: false });
+    } else {
+      chrome.storage.local.set({ isActive: isActive });
+    }
     updateUI(isActive);
   });
 
