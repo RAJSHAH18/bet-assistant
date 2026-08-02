@@ -772,14 +772,25 @@
     "saffronexch247.com": {
       name: "SaffronExch 247",
       findInput: (rootNode) => {
-        // Accurately targets the unique ID from your HTML
+        // Perfectly matches the ID used on both PC and Phone
         const input = rootNode.querySelector('#inputStake, input[name="inputStake"]');
         return (input && !input.disabled) ? input : null;
       },
       findSubmitButton: (activeInput) => {
-        // Finds the exact Submit button using its unique ID in the container
-        const container = activeInput.closest('.bet_slip_details, .table-responsive') || document;
-        return container.querySelector('#placeBet, button.placeBet, button.btn-success') || null;
+        const container = activeInput.closest('.modal-content, .modal-dialog, .bet_slip_details, .table-responsive') || document;
+        
+        // 1. Try to find the exact button by ID or class first
+        let btn = container.querySelector('#placeBet, button.placeBet, button.btn-success');
+        
+        // 2. SMART FALLBACK: If ID fails, read the text on the buttons to find "Place Bet"
+        if (!btn) {
+          const buttons = Array.from(container.querySelectorAll('button'));
+          btn = buttons.find((button) => {
+            const text = (button.innerText || button.textContent || '').trim().toLowerCase();
+            return text.includes('place bet') || text.includes('submit');
+          });
+        }
+        return btn || null;
       },
       applySiteSpecificStyles: (enableStealth) => {
         let styleId = 'saffronexch-custom-isolated-style';
@@ -792,16 +803,25 @@
         }
 
         styleTag.innerHTML = `
-          /* GHOST TOASTS & UNBLOCK CLICKS */
+          /* GHOST TOASTS: Messages show but never block your finger */
           #toast-container, .toast, .b-toaster, .vue-toast, .toast-container,
           #toast-container *, .toast *, .b-toaster *, .vue-toast *, .toast-container * {
             pointer-events: none !important;
             z-index: 99999 !important;
           }
 
-          /* TARGETED SAFFRONEXCH HIDING: Strictly hides the .bet_slip_details and loader */
+          /* HARDWARE-ACCELERATED STEALTH: Works for BOTH Desktop and Mobile */
           ${enableStealth ? `
-            .bet_slip_details, .placeBetLoader {
+            /* Hides desktop layout and loader */
+            .bet_slip_details, .placeBetLoader,
+            
+            /* Hides mobile modal backdrop */
+            .modal-backdrop, .b-overlay,
+            
+            /* Hides the mobile popup ONLY when it contains your bet input */
+            .modal-dialog:has(#inputStake),
+            .modal-content:has(#inputStake),
+            div[id^="__BVID__"]:has(#inputStake) {
               opacity: 0 !important;
               visibility: hidden !important;
               pointer-events: none !important;
