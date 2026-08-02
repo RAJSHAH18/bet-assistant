@@ -1422,54 +1422,6 @@
   }
 
   function executeConfiguredInjection(element, amount, config) {
-    // ==============================================================
-    // ISOLATED LOGIC: ALL PANEL (Instant 1-Click = 1-Bet on SAME ODD)
-    // ==============================================================
-    if (config && config.name === "All Panel") {
-      element.focus();
-
-      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      
-      if (nativeSetter) {
-        // VUE HACK STEP 1: Clear the state so Vue thinks it's a new input
-        nativeSetter.call(element, '');
-        element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        
-        // VUE HACK STEP 2: Inject the actual amount instantly
-        nativeSetter.call(element, amount);
-        element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        element.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-      } else {
-        element.value = amount;
-      }
-
-      if (isAutoPlaceEnabled) {
-        let submitBtn = config.findSubmitButton(element);
-        if (submitBtn) {
-          // Force unlock instantly
-          submitBtn.disabled = false;
-          submitBtn.removeAttribute('disabled');
-          submitBtn.style.removeProperty('pointer-events');
-
-          // Native touch and mouse events for instant mobile response
-          const opts = { bubbles: true, cancelable: true, view: window };
-          if (window.TouchEvent) {
-            submitBtn.dispatchEvent(new TouchEvent('touchstart', opts));
-            submitBtn.dispatchEvent(new TouchEvent('touchend', opts));
-          }
-          submitBtn.dispatchEvent(new MouseEvent('mousedown', opts));
-          submitBtn.dispatchEvent(new MouseEvent('mouseup', opts));
-          submitBtn.click();
-        }
-      }
-      
-      // Stop executing here for All Panel. Do not run the rest of the function.
-      return; 
-    }
-
-    // ==============================================================
-    // ORIGINAL GLOBAL LOGIC (Untouched, exactly as you provided)
-    // ==============================================================
     processedNodes.add(element);
     element.focus();
 
@@ -1567,6 +1519,7 @@
       console.log(`[Bet Assistant Debug] 🛑 Auto-Place is turned OFF in the widget. Form will stay open.`);
     }
   }
+
   function executeUniversalInjection(element, amount) {
     processedNodes.add(element);
     element.focus();
