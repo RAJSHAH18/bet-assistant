@@ -772,17 +772,18 @@
     "saffronexch247.com": {
       name: "SaffronExch 247",
       findInput: (rootNode) => {
-        // Perfectly matches the ID used on both PC and Phone
-        const input = rootNode.querySelector('#inputStake, input[name="inputStake"]');
+        // Matches the exact input ID from your mobile HTML snippet
+        const input = rootNode.querySelector('#inputStake');
         return (input && !input.disabled) ? input : null;
       },
       findSubmitButton: (activeInput) => {
-        const container = activeInput.closest('.modal-content, .modal-dialog, .bet_slip_details, .table-responsive') || document;
+        // Looks inside the exact modal structure from your snippet
+        const container = activeInput.closest('.modal-content, .modal-dialog, .bet_slip_details') || document;
         
-        // 1. Try to find the exact button by ID or class first
-        let btn = container.querySelector('#placeBet, button.placeBet, button.btn-success');
+        // Targets the exact place bet button ID and classes
+        let btn = container.querySelector('#placeBet, button.placeBet.btn-success');
         
-        // 2. SMART FALLBACK: If ID fails, read the text on the buttons to find "Place Bet"
+        // Fallback to text matching just in case
         if (!btn) {
           const buttons = Array.from(container.querySelectorAll('button'));
           btn = buttons.find((button) => {
@@ -804,27 +805,27 @@
 
         styleTag.innerHTML = `
           /* GHOST TOASTS: Messages show but never block your finger */
-          #toast-container, .toast, .b-toaster, .vue-toast, .toast-container,
-          #toast-container *, .toast *, .b-toaster *, .vue-toast *, .toast-container * {
+          #toast-container, .toast, .b-toaster, .vue-toast, .toast-container {
             pointer-events: none !important;
             z-index: 99999 !important;
           }
 
-          /* HARDWARE-ACCELERATED STEALTH: Works for BOTH Desktop and Mobile */
+          /* EXACT MOBILE HTML NUKE: Invisible but fully clickable for the script */
           ${enableStealth ? `
-            /* Hides desktop layout and loader */
+            /* Desktop fallbacks */
             .bet_slip_details, .placeBetLoader,
             
-            /* Hides mobile modal backdrop */
-            .modal-backdrop, .b-overlay,
-            
-            /* Hides the mobile popup ONLY when it contains your bet input */
-            .modal-dialog:has(#inputStake),
-            .modal-content:has(#inputStake),
-            div[id^="__BVID__"]:has(#inputStake) {
+            /* Mobile exact classes derived strictly from your HTML snippet */
+            .modal-dialog, 
+            .modal-content, 
+            .modal-body,
+            #popup_color, 
+            .place-bet,
+            .modal-backdrop, 
+            .b-overlay,
+            .modal.show, 
+            .modal {
               opacity: 0 !important;
-              visibility: hidden !important;
-              pointer-events: none !important;
               position: fixed !important;
               top: -99999px !important;
               left: -99999px !important;
@@ -837,6 +838,7 @@
               transform: translate3d(-99999px, -99999px, 0) !important;
               animation: none !important;
               transition: none !important;
+              /* visibility: hidden and pointer-events: none are REMOVED so bets successfully place */
             }
           ` : ''}
         `;
