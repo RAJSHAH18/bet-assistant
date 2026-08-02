@@ -859,17 +859,20 @@
         }
 
         styleTag.innerHTML = `
-          /* TARGET ANGULAR OVERLAYS: These elements create the 1-2 second blocking delay */
-          .cdk-overlay-container,
-          .cdk-global-overlay-wrapper,
-          .ngx-toastr,
-          #toast-container,
-          .bodymovinanim, .loader, .spinner, .loading, .bet-loader, #loader, .overlay {
+          /* 1. HIDE INVISIBLE WALLS THAT CAUSE FREEZING */
+          .cdk-overlay-backdrop, .overlay, .loader, .spinner, .loading, .bet-loader, #loader, .bodymovinanim {
             display: none !important;
             opacity: 0 !important;
-            visibility: hidden !important;
             pointer-events: none !important;
           }
+          
+          /* 2. SHOW TOASTS SO YOU CAN SEE "BET PLACED", BUT MAKE THEM UNCLICKABLE (GHOSTS) */
+          #toast-container, .ngx-toastr, .cdk-global-overlay-wrapper {
+            pointer-events: none !important; 
+            z-index: 99999 !important;
+          }
+
+          /* 3. HIDE THE BET SLIP ITSELF */
           ${enableStealth ? `
             app-bet-slip,
             app-bet-slip .bet-table,
