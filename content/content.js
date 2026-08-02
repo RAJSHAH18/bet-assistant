@@ -696,21 +696,22 @@
         `;
       }
     },
-    "allpanel": {
+    "allpanel777.global": {
       name: "All Panel",
-      // Exact element parameter matchers (Targeting ID for ultra-fast lookup)
       findInput: (rootNode) => {
-        return rootNode.querySelector('input[id^="placebetAmountWeb"]:not([disabled])');
+        // Updated to match the exact HTML provided (no specific ID, just the number input inside the bet box)
+        const container = rootNode.querySelector('.bet-slip-container');
+        if (!container) return null;
+        
+        return container.querySelector('input[type="number"]:not([disabled]), input[placeholder="Amount"]:not([disabled])');
       },
       findSubmitButton: (activeInput) => {
-        // The submit button is within .place-bet-btn inside the same container
         const container = activeInput.closest('.bet-slip-container');
         if (container) {
           return container.querySelector('.place-bet-btn button.btn-primary');
         }
         return null;
       },
-      // Dedicated site loader suppression & complete class hiding (No global leaks)
       applySiteSpecificStyles: (enableStealth) => {
         let styleId = 'allpanel-custom-isolated-style';
         let styleTag = document.getElementById(styleId);
@@ -722,17 +723,47 @@
         }
 
         styleTag.innerHTML = `
-          .bodymovinanim {
+          /* 1. GHOST TOASTS: Let you see messages but your clicks pass right through them */
+          #toast-container, .toast, .b-toaster, .vue-toast {
+            pointer-events: none !important;
+            z-index: 99999 !important;
+          }
+
+          /* 2. HIDE LOADERS */
+          .bodymovinanim, .spinner, .loader {
             display: none !important;
             opacity: 0 !important;
             pointer-events: none !important;
           }
+
+          /* 3. KILL THE BOOTSTRAP MODAL FLASH */
           ${enableStealth ? `
-            .bet-slip-container {
+            /* Hide the dark background overlay */
+            .modal-backdrop, .b-overlay {
               display: none !important;
+              opacity: 0 !important;
+              pointer-events: none !important;
+            }
+
+            /* Hide the actual modal box containing the slip */
+            .modal-content:has(.bet-slip-container),
+            .modal-dialog:has(.bet-slip-container),
+            .bet-slip-container {
               opacity: 0 !important;
               visibility: hidden !important;
               pointer-events: none !important;
+              position: fixed !important;
+              top: -99999px !important;
+              left: -99999px !important;
+              width: 0px !important;
+              height: 0px !important;
+              max-width: 0px !important;
+              max-height: 0px !important;
+              overflow: hidden !important;
+              z-index: -99999 !important;
+              transform: scale(0) !important;
+              animation: none !important;
+              transition: none !important;
             }
           ` : ''}
         `;
@@ -1391,104 +1422,158 @@
   }
 
   function executeConfiguredInjection(element, amount, config) {
+    // 1. INPUT LOCK: Prevents double-firing on the same input box
+    if (element.dataset.injected === '1') return;
+    element.dataset.injected = '1';
+    setTimeout(() => { delete element.dataset.injected; }, 300);
+
     processedNodes.add(element);
     element.focus();
 
     try {
-      console.log(`[Bet Assistant Debug] 💉 Injecting stake: ${amount} into input id="${element.id}" class="${element.className}"... (Value before: ${element.value})`);
-      
-      // Override React/Angular property trackers if they exist
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+      // Override React/Angular/Vue property trackers
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
       if (nativeInputValueSetter) {
         nativeInputValueSetter.call(element, amount);
       } else {
         element.value = amount;
       }
-      
+    } catch (e) {
+      console.warn('[Bet Assistant Debug] ⚠️ Error during stake injection:', e);
+      element.value = amount; 
+    }
+
+    // ==============================================================
+    // ISOLATED LOGIC: ALL PANEL (Instant Vue.js Execution)
+    // ==============================================================
+    if (config && config.name === "All Panel") {
+      // Vue strictly tracks 'input' and 'change' to update v-model
+      element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      element.dispatchEvent(new Event('blur', { bubbles: true, composed: true }));
+
+      if (isAutoPlaceEnabled) {
+        // Micro-polling: Hits the button the exact millisecond Vue unlocks it
+        const tryVueSubmit = () => {
+          let submitBtn = config.findSubmitButton(element);
+          if (submitBtn && !submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
+            
+            // Debounce lock to prevent double clicks
+            if (submitBtn.getAttribute('data-bet-locked') === '1') return;
+            submitBtn.setAttribute('data-bet-locked', '1');
+            setTimeout(() => { submitBtn.removeAttribute('data-bet-locked'); }, 200);
+
+            submitBtn.style.removeProperty('pointer-events');
+
+            const opts = { bubbles: true, cancelable: true, view: window };
+            
+            // Native Mobile Touch execution for zero delay
+            if (window.TouchEvent) {
+              submitBtn.dispatchEvent(new TouchEvent('touchstart', opts));
+              submitBtn.dispatchEvent(new TouchEvent('touchend', opts));
+            }
+            submitBtn.dispatchEvent(new MouseEvent('mousedown', opts));
+            submitBtn.dispatchEvent(new MouseEvent('mouseup', opts));
+            submitBtn.dispatchEvent(new MouseEvent('click', opts));
+            
+          } else {
+            // Check again on the next browser paint frame
+            requestAnimationFrame(tryVueSubmit);
+          }
+        };
+        tryVueSubmit();
+      }
+    }
+    // ==============================================================
+    // ISOLATED LOGIC: MANGO777 (Angular Token Delays & Shield)
+    // ==============================================================
+    else if (config && config.name === "Mango777") {
+      element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      element.dispatchEvent(new Event('blur', { bubbles: true, composed: true })); 
+      element.blur(); 
+
+      if (isAutoPlaceEnabled) {
+        setTimeout(() => {
+          let submitBtn = config.findSubmitButton(element);
+          if (submitBtn && !submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
+            if (submitBtn.getAttribute('data-bet-locked') === '1') return;
+            submitBtn.setAttribute('data-bet-locked', '1');
+            setTimeout(() => { submitBtn.removeAttribute('data-bet-locked'); }, 200); 
+
+            submitBtn.style.removeProperty('pointer-events');
+            const opts = { bubbles: true, cancelable: true, view: window };
+            submitBtn.dispatchEvent(new MouseEvent('mousedown', opts));
+            submitBtn.dispatchEvent(new MouseEvent('mouseup', opts));
+            submitBtn.dispatchEvent(new MouseEvent('click', opts));
+
+            // Network Shield
+            let shield = document.createElement('div');
+            shield.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:2147483647; background:transparent;';
+            document.body.appendChild(shield);
+            setTimeout(() => { if (shield.parentNode) shield.remove(); }, 400);
+          }
+        }, 25); 
+      }
+    } 
+    // ==============================================================
+    // ORIGINAL GLOBAL LOGIC: DEFAULT (CBTF, Laxmi, Unlisted Sites)
+    // ==============================================================
+    else {
       element.dispatchEvent(new Event('input', { bubbles: true }));
       element.dispatchEvent(new Event('change', { bubbles: true }));
       element.dispatchEvent(new Event('blur', { bubbles: true }));
       element.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter', keyCode: 13 }));
 
-      console.log(`[Bet Assistant Debug] ✅ Injection complete. Value is now: ${element.value}`);
-    } catch (e) {
-      console.warn('[Bet Assistant Debug] ⚠️ Error during stake injection:', e);
-      element.value = amount; // Fallback
-    }
+      if (isAutoPlaceEnabled) {
+        let attempts = 0;
+        let observerCleaned = false;
 
-    if (isAutoPlaceEnabled) {
-      let attempts = 0;
-      const pollStart = performance.now();
-      let observerCleaned = false;
+        const doClick = (submitBtn) => {
+          if (observerCleaned) return;
+          observerCleaned = true;
+          if (observer) observer.disconnect();
+          triggerFastClick(submitBtn);
+        };
 
-      const doClick = (submitBtn, reason) => {
-        if (observerCleaned) return;
-        observerCleaned = true;
-        if (observer) observer.disconnect();
-        console.log(`[Bet Assistant Debug] ✅ Clicking button (${reason}) after ${(performance.now() - pollStart).toFixed(1)}ms`);
-        triggerFastClick(submitBtn);
-      };
+        let observer = null;
 
-      let observer = null;
+        const trySubmit = () => {
+          let submitBtn = config.findSubmitButton(element);
+          if (!submitBtn) return;
 
-      const trySubmit = () => {
-        let submitBtn = config.findSubmitButton(element);
-
-        if (!submitBtn) {
-           if (attempts === 0) {
-               console.warn(`[Bet Assistant Debug] ❌ Could not find Submit button using findSubmitButton!`);
-           } else {
-               console.warn(`[Bet Assistant Debug] ⚠️ Submit button DISAPPEARED at attempt ${attempts}! Framework may have re-rendered.`);
-           }
-           return;
-        }
-
-        if (attempts === 0) {
-          const isDisabled = submitBtn.disabled || submitBtn.hasAttribute('disabled');
-          const inlinePtr = submitBtn.style.pointerEvents;
-          console.log(`[Bet Assistant Debug] 🔍 Initial Button State -> disabled: ${isDisabled}, inline pointer-events: "${inlinePtr}"`);
-
-          if (isDisabled) {
-            console.log(`[Bet Assistant Debug] ⏳ Button is locked by Angular. Setting up MutationObserver for instant unlock detection...`);
-
-            // MutationObserver: fire the moment Angular removes the 'disabled' attribute
-            observer = new MutationObserver((mutations) => {
-              for (const m of mutations) {
-                if (m.attributeName === 'disabled' && !submitBtn.hasAttribute('disabled')) {
-                  console.log(`[Bet Assistant Debug] ⚡ MutationObserver: disabled attr removed after ${(performance.now() - pollStart).toFixed(1)}ms! Clicking instantly.`);
-                  doClick(submitBtn, 'MutationObserver');
-                  return;
+          if (attempts === 0) {
+            const isDisabled = submitBtn.disabled || submitBtn.hasAttribute('disabled');
+            
+            if (isDisabled) {
+              observer = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                  if (m.attributeName === 'disabled' && !submitBtn.hasAttribute('disabled')) {
+                    doClick(submitBtn);
+                    return;
+                  }
                 }
-              }
-            });
-            observer.observe(submitBtn, { attributes: true, attributeFilter: ['disabled'] });
-          } else {
-            // Button is already enabled — click immediately
-            doClick(submitBtn, 'already enabled');
-            return;
+              });
+              observer.observe(submitBtn, { attributes: true, attributeFilter: ['disabled'] });
+            } else {
+              doClick(submitBtn);
+              return;
+            }
           }
-        }
 
-        // RAF polling as safety net alongside MutationObserver
-        if (!submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
-          doClick(submitBtn, `RAF poll #${attempts}`);
-        } else if (attempts < 120) { // 120 frames ≈ 2 seconds at 60fps
-          if (attempts % 30 === 0 && attempts > 0) {
-            console.log(`[Bet Assistant Debug] ⏳ Still waiting... attempt ${attempts}/120 (${(performance.now() - pollStart).toFixed(0)}ms elapsed)`);
+          if (!submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
+            doClick(submitBtn);
+          } else if (attempts < 120) { 
+            attempts++;
+            requestAnimationFrame(trySubmit);
+          } else {
+            doClick(submitBtn);
           }
-          attempts++;
-          requestAnimationFrame(trySubmit);
-        } else {
-          console.warn(`[Bet Assistant Debug] ⚠️ Button never unlocked after 2 seconds (attempt ${attempts}). Force-clicking...`);
-          doClick(submitBtn, 'force after timeout');
-        }
-      };
-      trySubmit();
-    } else {
-      console.log(`[Bet Assistant Debug] 🛑 Auto-Place is turned OFF in the widget. Form will stay open.`);
+        };
+        trySubmit();
+      }
     }
   }
-
   function executeUniversalInjection(element, amount) {
     processedNodes.add(element);
     element.focus();
