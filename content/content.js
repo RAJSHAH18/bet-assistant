@@ -859,20 +859,17 @@
         }
 
         styleTag.innerHTML = `
-          /* 1. HIDE INVISIBLE WALLS THAT CAUSE FREEZING */
-          .cdk-overlay-backdrop, .overlay, .loader, .spinner, .loading, .bet-loader, #loader, .bodymovinanim {
+          /* TARGET ANGULAR OVERLAYS: These elements create the 1-2 second blocking delay */
+          .cdk-overlay-container,
+          .cdk-global-overlay-wrapper,
+          .ngx-toastr,
+          #toast-container,
+          .bodymovinanim, .loader, .spinner, .loading, .bet-loader, #loader, .overlay {
             display: none !important;
             opacity: 0 !important;
+            visibility: hidden !important;
             pointer-events: none !important;
           }
-          
-          /* 2. SHOW TOASTS SO YOU CAN SEE "BET PLACED", BUT MAKE THEM UNCLICKABLE (GHOSTS) */
-          #toast-container, .ngx-toastr, .cdk-global-overlay-wrapper {
-            pointer-events: none !important; 
-            z-index: 99999 !important;
-          }
-
-          /* 3. HIDE THE BET SLIP ITSELF */
           ${enableStealth ? `
             app-bet-slip,
             app-bet-slip .bet-table,
@@ -1392,13 +1389,19 @@
     
     return false;
   }
-
  function executeConfiguredInjection(element, amount, config) {
+    // If we already injected into this specific input box, skip it to prevent double-firing
+    if (element.dataset.injected === '1') return;
+    element.dataset.injected = '1';
+    
+    // Clear the input lock after 300ms so it's ready for the *next* distinct bet
+    setTimeout(() => { delete element.dataset.injected; }, 300);
+
     processedNodes.add(element);
     element.focus();
 
     try {
-      // Override React/Angular property trackers if they exist
+      // Override React/Angular property trackers
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
       if (nativeInputValueSetter) {
         nativeInputValueSetter.call(element, amount);
@@ -1407,11 +1410,11 @@
       }
     } catch (e) {
       console.warn('[Bet Assistant Debug] ⚠️ Error during stake injection:', e);
-      element.value = amount; // Fallback
+      element.value = amount; 
     }
 
     // ==============================================================
-    // ISOLATED LOGIC: ONLY FOR MANGO777 (Fixes Tokens & Mobile Speed)
+    // ISOLATED LOGIC: ONLY FOR MANGO777 (Single Click + Instant Next Bet)
     // ==============================================================
     if (config && config.name === "Mango777") {
       element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
@@ -1420,31 +1423,28 @@
       element.blur(); 
 
       if (isAutoPlaceEnabled) {
-        // 5ms delay allows the Angular Virtual DOM to generate the security token
+        // 25ms delay: Fast enough for instant feel, gives Angular just enough time to validate the token
         setTimeout(() => {
           let submitBtn = config.findSubmitButton(element);
           if (submitBtn && !submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
             
-            // Debounce lock: Prevents mobile double-taps from causing "Invalid Token"
+            // Strictly prevent double-clicking the button
             if (submitBtn.getAttribute('data-bet-locked') === '1') return;
+            submitBtn.setAttribute('data-bet-locked', '1');
+            
+            // Release the lock in 200ms. This prevents the "Invalid Token" spam, 
+            // but is completely unlocked by the time you tap for your next bet.
+            setTimeout(() => { submitBtn.removeAttribute('data-bet-locked'); }, 200); 
+
             submitBtn.style.removeProperty('pointer-events');
 
+            // EXACTLY ONE single click sequence. No TouchEvent spam.
             const opts = { bubbles: true, cancelable: true, view: window };
-            
-            // Native Mobile Touch execution for instant response on Android/Kiwi
-            if (window.TouchEvent) {
-              submitBtn.dispatchEvent(new TouchEvent('touchstart', opts));
-              submitBtn.dispatchEvent(new TouchEvent('touchend', opts));
-            }
             submitBtn.dispatchEvent(new MouseEvent('mousedown', opts));
             submitBtn.dispatchEvent(new MouseEvent('mouseup', opts));
             submitBtn.dispatchEvent(new MouseEvent('click', opts));
-
-            // Lock the button for 300ms so the mobile CPU can fetch the next token safely
-            submitBtn.setAttribute('data-bet-locked', '1');
-            setTimeout(() => { submitBtn.removeAttribute('data-bet-locked'); }, 300);
           }
-        }, 5); 
+        }, 25); 
       }
     } 
     // ==============================================================
@@ -1475,11 +1475,6 @@
           let submitBtn = config.findSubmitButton(element);
 
           if (!submitBtn) {
-             if (attempts === 0) {
-                 console.warn(`[Bet Assistant Debug] ❌ Could not find Submit button using findSubmitButton!`);
-             } else {
-                 console.warn(`[Bet Assistant Debug] ⚠️ Submit button DISAPPEARED at attempt ${attempts}! Framework may have re-rendered.`);
-             }
              return;
           }
 
@@ -1487,7 +1482,6 @@
             const isDisabled = submitBtn.disabled || submitBtn.hasAttribute('disabled');
             
             if (isDisabled) {
-              // MutationObserver: fire the moment Angular removes the 'disabled' attribute
               observer = new MutationObserver((mutations) => {
                 for (const m of mutations) {
                   if (m.attributeName === 'disabled' && !submitBtn.hasAttribute('disabled')) {
@@ -1498,20 +1492,17 @@
               });
               observer.observe(submitBtn, { attributes: true, attributeFilter: ['disabled'] });
             } else {
-              // Button is already enabled — click immediately
               doClick(submitBtn, 'already enabled');
               return;
             }
           }
 
-          // RAF polling as safety net alongside MutationObserver
           if (!submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
             doClick(submitBtn, `RAF poll #${attempts}`);
-          } else if (attempts < 120) { // 120 frames ≈ 2 seconds at 60fps
+          } else if (attempts < 120) { 
             attempts++;
             requestAnimationFrame(trySubmit);
           } else {
-            console.warn(`[Bet Assistant Debug] ⚠️ Button never unlocked after 2 seconds (attempt ${attempts}). Force-clicking...`);
             doClick(submitBtn, 'force after timeout');
           }
         };
