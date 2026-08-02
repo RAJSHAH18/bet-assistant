@@ -1727,11 +1727,12 @@
         <input type="number" id="stakeField" class="input-box" placeholder="Custom Stake...">
         <div class="section-label">Quick Presets</div>
         <div class="chips-container" id="presetChips">
-          <div class="chip" data-val="10">10</div>
-          <div class="chip" data-val="50">50</div>
           <div class="chip" data-val="100">100</div>
-          <div class="chip" data-val="500">500</div>
           <div class="chip" data-val="1000">1000</div>
+          <div class="chip" data-val="10000">10000</div>
+          <div class="chip" data-val="25000">25000</div>
+          <div class="chip" data-val="50000">50000</div>
+          <div class="chip" data-val="100000">100000</div>
         </div>
         <div class="section-label">Recent User Inputs</div>
         <div class="chips-container" id="recentChips"></div>
