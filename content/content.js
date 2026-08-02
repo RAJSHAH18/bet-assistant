@@ -769,6 +769,59 @@
         `;
       }
     },
+    "saffronexch247.com": {
+      name: "SaffronExch 247",
+      findInput: (rootNode) => {
+        // Accurately targets the unique ID from your HTML
+        const input = rootNode.querySelector('#inputStake, input[name="inputStake"]');
+        return (input && !input.disabled) ? input : null;
+      },
+      findSubmitButton: (activeInput) => {
+        // Finds the exact Submit button using its unique ID in the container
+        const container = activeInput.closest('.bet_slip_details, .table-responsive') || document;
+        return container.querySelector('#placeBet, button.placeBet, button.btn-success') || null;
+      },
+      applySiteSpecificStyles: (enableStealth) => {
+        let styleId = 'saffronexch-custom-isolated-style';
+        let styleTag = document.getElementById(styleId);
+        
+        if (!styleTag) {
+          styleTag = document.createElement('style');
+          styleTag.id = styleId;
+          document.head.appendChild(styleTag);
+        }
+
+        styleTag.innerHTML = `
+          /* GHOST TOASTS & UNBLOCK CLICKS */
+          #toast-container, .toast, .b-toaster, .vue-toast, .toast-container,
+          #toast-container *, .toast *, .b-toaster *, .vue-toast *, .toast-container * {
+            pointer-events: none !important;
+            z-index: 99999 !important;
+          }
+
+          /* TARGETED SAFFRONEXCH HIDING: Strictly hides the .bet_slip_details and loader */
+          ${enableStealth ? `
+            .bet_slip_details, .placeBetLoader {
+              opacity: 0 !important;
+              visibility: hidden !important;
+              pointer-events: none !important;
+              position: fixed !important;
+              top: -99999px !important;
+              left: -99999px !important;
+              width: 1px !important;
+              height: 1px !important;
+              max-width: 1px !important;
+              max-height: 1px !important;
+              overflow: hidden !important;
+              z-index: -99999 !important;
+              transform: translate3d(-99999px, -99999px, 0) !important;
+              animation: none !important;
+              transition: none !important;
+            }
+          ` : ''}
+        `;
+      }
+    },
     "allpanel247": {
       name: "All Panel 247",
       findInput: (rootNode) => {
@@ -817,31 +870,13 @@
         }
 
         styleTag.innerHTML = `
-          /* GHOST TOASTS & MESSAGES */
-          #toast-container, .toast, .b-toaster, .vue-toast, .toast-container,
-          #toast-container *, .toast *, .b-toaster *, .vue-toast *, .toast-container * {
-            pointer-events: none !important;
-            z-index: 99999 !important;
-          }
-
-          /* HARDWARE-ACCELERATED STEALTH HIDING (Stops mobile flashing completely) */
           ${enableStealth ? `
             .place-bet-container {
+              display: none !important;
               opacity: 0 !important;
               visibility: hidden !important;
               pointer-events: none !important;
-              position: fixed !important;
-              top: -99999px !important;
-              left: -99999px !important;
-              width: 1px !important;
-              height: 1px !important;
-              max-width: 1px !important;
-              max-height: 1px !important;
-              overflow: hidden !important;
-              z-index: -99999 !important;
-              transform: translate3d(-99999px, -99999px, 0) !important;
-              animation: none !important;
-              transition: none !important;
+              z-index: -9999 !important;
             }
           ` : ''}
         `;
