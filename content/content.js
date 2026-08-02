@@ -798,145 +798,97 @@
         `;
       }
     },
-    "mango": {
-      name: "Mango Exchange",
+    "mango777.online": {
+      name: "Mango777",
       findInput: (rootNode) => {
-        // --- STEP 1: Find all clickable elements ---
-        const allElements = Array.from(rootNode.querySelectorAll('button, div[role="button"], span[role="button"], a, [class*="btn"], [class*="place"]'));
-
-        // --- STEP 2: Broad text search (catches variations like "Place Order", "PLACE ORDER", "PlaceOrder", "Place Bet") ---
-        const submitBtn = allElements.find(el => {
-           // Match by class first (fastest)
-           if (el.classList && (el.classList.contains('btn-po') || el.classList.contains('btn-place'))) return true;
-           // Match by normalized text content
-           const rawText = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-           if (rawText === 'place order' || rawText === 'placeorder' || rawText === 'place bet' || rawText === 'submit' || rawText === 'place') return true;
-           // Match by aria-label
-           const label = (el.getAttribute('aria-label') || '').toLowerCase();
-           if (label.includes('place') || label.includes('order')) return true;
-           return false;
-        });
-
-        if (!submitBtn) {
-           if (!window.loggedMissingContainerMango) {
-              console.warn(`[Mango Debug] ❌ FAILED: Could not find any Place Order button or '.btn-po'`);
-              // --- DIAGNOSTIC DUMP: Log ALL button texts so we can see what the site actually renders ---
-              console.warn(`[Mango Debug] 🔍 ALL clickable element texts on page:`);
-              const allClickable = Array.from(rootNode.querySelectorAll('button, a, [role="button"]'));
-              const textList = allClickable
-                .map(el => ({ tag: el.tagName, cls: el.className.toString().substring(0, 60), text: (el.innerText || el.textContent || '').trim().substring(0, 80) }))
-                .filter(x => x.text.length > 0);
-              console.table(textList);
-              window.loggedMissingContainerMango = true;
-           }
-           return null;
+        const slip = rootNode.querySelector('app-bet-slip .bet-table, app-bet-slip');
+        if (!slip) {
+          if (!window.loggedMissingContainerMango) {
+            console.warn('[Mango777 Debug] Bet slip container not found. Expected: app-bet-slip .bet-table');
+            window.loggedMissingContainerMango = true;
+          }
+          return null;
         }
 
-        if (!window.loggedFoundBtn) {
-          console.log(`[Mango Debug] ✅ Found submit button:`, submitBtn.tagName, submitBtn.className, `"${(submitBtn.innerText||submitBtn.textContent||'').trim()}"`);
-          window.loggedFoundBtn = true;
+        // REMOVED INLINE STEALTH: Applying inline styles directly to the Angular component 
+        // interrupts the framework's change detection and causes the "Invalid Token" error.
+        // Hiding must be handled exclusively in applySiteSpecificStyles.
+
+        const stakeInput = slip.querySelector('input.bs_stakes_i:not([disabled]), input[placeholder*="Min"]:not([disabled])');
+        if (!stakeInput) {
+          if (!window.loggedMissingInputMango) {
+            console.warn('[Mango777 Debug] Stake input not found inside bet slip. Expected: input.bs_stakes_i');
+            console.warn('[Mango777 Debug] Slip HTML:', slip.outerHTML.substring(0, 1200));
+            window.loggedMissingInputMango = true;
+          }
+          return null;
         }
-
-        // --- STEP 3: Traverse UP the DOM to find the bet slip container with number inputs ---
-        let container = submitBtn.parentElement;
-        let inputs = [];
-        let depth = 0;
-        while (container && container !== document.body && depth < 15) {
-           inputs = Array.from(container.querySelectorAll('input[type="number"], input[type="text"][inputmode="numeric"], input[placeholder*="stake" i], input[placeholder*="amount" i]'));
-           if (inputs.length > 0) break;
-           container = container.parentElement;
-           depth++;
-        }
-
-        // --- STEP 4: Pick the right input (stake box, not odds box) ---
-        let amountInput = inputs.find(input => input.classList.contains('bs_stakes_i')) || 
-                          inputs.find(input => (input.placeholder || '').toLowerCase().includes('stake')) ||
-                          inputs.find(input => (input.placeholder || '').toLowerCase().includes('amount')) ||
-                          inputs.find(input => !input.hasAttribute('step')) || 
-                          (inputs.length > 0 ? inputs[inputs.length - 1] : null);
-
-        if (!amountInput) {
-           if (!window.loggedMissingInputMango) {
-              console.warn("[Mango Debug] ❌ FAILED: Found Place Order button, but no number inputs found in its parent tree!");
-              console.warn("[Mango Debug] 🔍 Container HTML (cleaned):", container ? container.outerHTML.replace(/<svg[^>]*>.*?<\/svg>/gs, '<svg>...</svg>').substring(0, 1200) : 'No container');
-              window.loggedMissingInputMango = true;
-           }
-           return null;
-        }
-
-        // --- STEP 0: CRITICAL — Reset any leftover inline stealth styles from previous bet ---
-        // These persist on the DOM because Angular reuses component elements.
-        // If not cleared, Angular cannot properly initialize the form and the button stays disabled forever.
-        const betCardBody = rootNode.querySelector('.card-body');
-        if (betCardBody && betCardBody.style.opacity === '0') {
-          console.log('[Mango Debug] 🧹 Clearing stale stealth inline styles from previous bet...');
-          betCardBody.style.removeProperty('opacity');
-          betCardBody.style.removeProperty('visibility');
-          betCardBody.style.removeProperty('position');
-          betCardBody.style.removeProperty('z-index');
-          betCardBody.style.removeProperty('pointer-events');
-          betCardBody.style.removeProperty('top');
-          betCardBody.style.removeProperty('left');
-        }
-
-        if (!window.loggedFormHtmlMango) {
-           window.loggedFormHtmlMango = true;
-           console.log("[Mango Debug] 🔍 Bet Slip Container Found! Exact HTML:");
-           let cleanHtml = container.outerHTML.replace(/<svg[^>]*>.*?<\/svg>/gs, '<svg>...</svg>');
-           console.log(cleanHtml);
-        }
-
-        // NOTE: Do NOT apply inline stealth here — it confuses Angular's zone.js and prevents
-        // the HTTP call from completing, keeping the button permanently disabled.
-        // Stealth is handled via CSS in applySiteSpecificStyles instead.
 
         if (!window.loggedSuccessMango) {
-           console.log("[Mango Debug] ✅ SUCCESS: Found input field!", amountInput);
-           window.loggedSuccessMango = true;
+          console.log('[Mango777 Debug] Found exact stake input:', stakeInput.className, '| value:', stakeInput.value);
+          window.loggedSuccessMango = true;
         }
-        return amountInput;
+        return stakeInput;
       },
       findSubmitButton: (activeInput) => {
-        let container = activeInput.parentElement;
-        let allElements = [];
-        let submitBtn = null;
-        
-        while (container && container !== document.body) {
-           allElements = Array.from(container.querySelectorAll('button, div, span, a'));
-           submitBtn = allElements.find(el => {
-              if (el.classList && el.classList.contains('btn-po')) return true;
-              for (let child of el.childNodes) {
-                 if (child.nodeType === 3 && child.textContent.trim().toLowerCase() === 'place order') return true;
-              }
-              return false;
-           });
-           if (submitBtn) return submitBtn;
-           container = container.parentElement;
+        const slip = activeInput.closest('app-bet-slip, .bet-table, .card-body, .card') || document;
+        let btn = slip.querySelector('button.btn-po');
+
+        if (!btn) {
+          const buttons = Array.from(slip.querySelectorAll('button'));
+          btn = buttons.find((button) => {
+            const text = (button.innerText || button.textContent || '').trim().toLowerCase();
+            return text === 'place order' || text === 'place bet' || text === 'submit';
+          });
         }
-        return null;
+
+        if (!btn && !window.loggedFoundBtn) {
+          console.warn('[Mango777 Debug] Submit button not found. Expected: button.btn-po');
+          window.loggedFoundBtn = true;
+        }
+        return btn || null;
       },
       applySiteSpecificStyles: (enableStealth) => {
-        let styleId = 'mango-global-stealth';
+        let styleId = 'mango777-exact-stealth-style';
         let styleTag = document.getElementById(styleId);
+
         if (!styleTag) {
           styleTag = document.createElement('style');
           styleTag.id = styleId;
           document.head.appendChild(styleTag);
         }
-        
+
         styleTag.innerHTML = `
+          /* TARGET ANGULAR OVERLAYS: These elements create the 1-2 second blocking delay */
+          .cdk-overlay-container,
+          .cdk-global-overlay-wrapper,
+          .ngx-toastr,
+          #toast-container,
+          .bodymovinanim, .loader, .spinner, .loading, .bet-loader, #loader, .overlay {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+          }
           ${enableStealth ? `
-            /* Hide Bet Slip Container BEFORE paint to prevent flash */
             app-bet-slip,
-            .bet-table,
-            div:has(> app-bet-slip) {
+            app-bet-slip .bet-table,
+            app-bet-slip .card,
+            app-bet-slip .card-body,
+            app-bet-slip .pb-co {
               opacity: 0 !important;
               visibility: hidden !important;
               pointer-events: none !important;
               position: fixed !important;
               top: -9999px !important;
               left: -9999px !important;
+              width: 1px !important;
+              height: 1px !important;
+              max-width: 1px !important;
+              max-height: 1px !important;
+              overflow: hidden !important;
               z-index: -9999 !important;
+              transform: translate(-9999px, -9999px) !important;
             }
           ` : ''}
         `;
@@ -1079,6 +1031,8 @@
       }
     }
   };
+
+  // SITE_CONFIGS.mango777 = SITE_CONFIGS["mango777.online"];
 
   function getCurrentSiteConfig() {
     // If we received a cross-frame message from a parent, use the parent's hostname to lookup the config
@@ -1584,6 +1538,10 @@
     btn.style.removeProperty('pointer-events');
 
     const opts = { bubbles: true, cancelable: true, view: window };
+    if (window.PointerEvent) {
+      btn.dispatchEvent(new PointerEvent('pointerdown', { ...opts, pointerType: 'touch', isPrimary: true }));
+      btn.dispatchEvent(new PointerEvent('pointerup', { ...opts, pointerType: 'touch', isPrimary: true }));
+    }
     btn.dispatchEvent(new MouseEvent('mousedown', opts));
     btn.dispatchEvent(new MouseEvent('mouseup', opts));
     btn.dispatchEvent(new MouseEvent('click', opts));
