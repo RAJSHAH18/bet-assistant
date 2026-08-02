@@ -810,10 +810,6 @@
           return null;
         }
 
-        // REMOVED INLINE STEALTH: Applying inline styles directly to the Angular component 
-        // interrupts the framework's change detection and causes the "Invalid Token" error.
-        // Hiding must be handled exclusively in applySiteSpecificStyles.
-
         const stakeInput = slip.querySelector('input.bs_stakes_i:not([disabled]), input[placeholder*="Min"]:not([disabled])');
         if (!stakeInput) {
           if (!window.loggedMissingInputMango) {
@@ -859,11 +855,14 @@
         }
 
         styleTag.innerHTML = `
-          /* TARGET ANGULAR OVERLAYS: These elements create the 1-2 second blocking delay */
+          /* TARGET OVERLAYS: Using the exact HTML provided to kill the popup freezing */
+          .overlay-container,
+          #toast-container,
+          .toast-container,
+          .toast-top-center,
           .cdk-overlay-container,
           .cdk-global-overlay-wrapper,
           .ngx-toastr,
-          #toast-container,
           .bodymovinanim, .loader, .spinner, .loading, .bet-loader, #loader, .overlay {
             display: none !important;
             opacity: 0 !important;
@@ -880,15 +879,15 @@
               visibility: hidden !important;
               pointer-events: none !important;
               position: fixed !important;
-              top: -9999px !important;
-              left: -9999px !important;
-              width: 1px !important;
-              height: 1px !important;
-              max-width: 1px !important;
-              max-height: 1px !important;
+              top: -99999px !important;
+              left: -99999px !important;
+              width: 0px !important;
+              height: 0px !important;
+              max-width: 0px !important;
+              max-height: 0px !important;
               overflow: hidden !important;
-              z-index: -9999 !important;
-              transform: translate(-9999px, -9999px) !important;
+              z-index: -99999 !important;
+              transform: scale(0) !important;
             }
           ` : ''}
         `;
@@ -1390,31 +1389,27 @@
     return false;
   }
  function executeConfiguredInjection(element, amount, config) {
-    // If we already injected into this specific input box, skip it to prevent double-firing
+    // 1. INPUT LOCK: Prevents the scanner from injecting into the exact same input twice
     if (element.dataset.injected === '1') return;
     element.dataset.injected = '1';
-    
-    // Clear the input lock after 300ms so it's ready for the *next* distinct bet
     setTimeout(() => { delete element.dataset.injected; }, 300);
 
     processedNodes.add(element);
     element.focus();
 
     try {
-      // Override React/Angular property trackers
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      if (nativeInputValueSetter) {
-        nativeInputValueSetter.call(element, amount);
+      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+      if (nativeSetter) {
+        nativeSetter.call(element, amount);
       } else {
         element.value = amount;
       }
     } catch (e) {
-      console.warn('[Bet Assistant Debug] ⚠️ Error during stake injection:', e);
       element.value = amount; 
     }
 
     // ==============================================================
-    // ISOLATED LOGIC: ONLY FOR MANGO777 (Single Click + Instant Next Bet)
+    // ISOLATED LOGIC: ONLY FOR MANGO777 (Fixes Tokens & Consecutive Bets)
     // ==============================================================
     if (config && config.name === "Mango777") {
       element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
@@ -1423,26 +1418,32 @@
       element.blur(); 
 
       if (isAutoPlaceEnabled) {
-        // 25ms delay: Fast enough for instant feel, gives Angular just enough time to validate the token
+        // 25ms delay allows the Angular Virtual DOM to generate the security token
         setTimeout(() => {
           let submitBtn = config.findSubmitButton(element);
           if (submitBtn && !submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
             
-            // Strictly prevent double-clicking the button
+            // STRICT DEBOUNCE: Prevents double-taps from causing "Invalid Token"
             if (submitBtn.getAttribute('data-bet-locked') === '1') return;
             submitBtn.setAttribute('data-bet-locked', '1');
-            
-            // Release the lock in 200ms. This prevents the "Invalid Token" spam, 
-            // but is completely unlocked by the time you tap for your next bet.
             setTimeout(() => { submitBtn.removeAttribute('data-bet-locked'); }, 200); 
 
             submitBtn.style.removeProperty('pointer-events');
 
-            // EXACTLY ONE single click sequence. No TouchEvent spam.
+            // SINGLE CLICK EXECUTION
             const opts = { bubbles: true, cancelable: true, view: window };
             submitBtn.dispatchEvent(new MouseEvent('mousedown', opts));
             submitBtn.dispatchEvent(new MouseEvent('mouseup', opts));
             submitBtn.dispatchEvent(new MouseEvent('click', opts));
+
+            // THE NETWORK SHIELD: Invisible 400ms lock across the whole screen.
+            // This physically prevents tapping a different odd until the server 
+            // has successfully reset and provided a fresh security token.
+            let shield = document.createElement('div');
+            shield.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:2147483647; background:transparent;';
+            document.body.appendChild(shield);
+            setTimeout(() => { if (shield.parentNode) shield.remove(); }, 400);
+
           }
         }, 25); 
       }
@@ -1458,14 +1459,12 @@
 
       if (isAutoPlaceEnabled) {
         let attempts = 0;
-        const pollStart = performance.now();
         let observerCleaned = false;
 
-        const doClick = (submitBtn, reason) => {
+        const doClick = (submitBtn) => {
           if (observerCleaned) return;
           observerCleaned = true;
           if (observer) observer.disconnect();
-          console.log(`[Bet Assistant Debug] ✅ Clicking button (${reason}) after ${(performance.now() - pollStart).toFixed(1)}ms`);
           triggerFastClick(submitBtn);
         };
 
@@ -1474,9 +1473,7 @@
         const trySubmit = () => {
           let submitBtn = config.findSubmitButton(element);
 
-          if (!submitBtn) {
-             return;
-          }
+          if (!submitBtn) return;
 
           if (attempts === 0) {
             const isDisabled = submitBtn.disabled || submitBtn.hasAttribute('disabled');
@@ -1485,32 +1482,31 @@
               observer = new MutationObserver((mutations) => {
                 for (const m of mutations) {
                   if (m.attributeName === 'disabled' && !submitBtn.hasAttribute('disabled')) {
-                    doClick(submitBtn, 'MutationObserver');
+                    doClick(submitBtn);
                     return;
                   }
                 }
               });
               observer.observe(submitBtn, { attributes: true, attributeFilter: ['disabled'] });
             } else {
-              doClick(submitBtn, 'already enabled');
+              doClick(submitBtn);
               return;
             }
           }
 
           if (!submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
-            doClick(submitBtn, `RAF poll #${attempts}`);
+            doClick(submitBtn);
           } else if (attempts < 120) { 
             attempts++;
             requestAnimationFrame(trySubmit);
           } else {
-            doClick(submitBtn, 'force after timeout');
+            doClick(submitBtn);
           }
         };
         trySubmit();
       }
     }
   }
-
   function executeUniversalInjection(element, amount) {
     processedNodes.add(element);
     element.focus();
