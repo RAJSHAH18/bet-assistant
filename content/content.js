@@ -1389,103 +1389,125 @@
     
     return false;
   }
+ function executeConfiguredInjection(element, amount, config) {
+    // If we already injected into this specific input box, skip it to prevent double-firing
+    if (element.dataset.injected === '1') return;
+    element.dataset.injected = '1';
+    
+    // Clear the input lock after 300ms so it's ready for the *next* distinct bet
+    setTimeout(() => { delete element.dataset.injected; }, 300);
 
-  function executeConfiguredInjection(element, amount, config) {
     processedNodes.add(element);
     element.focus();
 
     try {
-      console.log(`[Bet Assistant Debug] 💉 Injecting stake: ${amount} into input id="${element.id}" class="${element.className}"... (Value before: ${element.value})`);
-      
-      // Override React/Angular property trackers if they exist
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+      // Override React/Angular property trackers
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
       if (nativeInputValueSetter) {
         nativeInputValueSetter.call(element, amount);
       } else {
         element.value = amount;
       }
-      
+    } catch (e) {
+      console.warn('[Bet Assistant Debug] ⚠️ Error during stake injection:', e);
+      element.value = amount; 
+    }
+
+    // ==============================================================
+    // ISOLATED LOGIC: ONLY FOR MANGO777 (Single Click + Instant Next Bet)
+    // ==============================================================
+    if (config && config.name === "Mango777") {
+      element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      element.dispatchEvent(new Event('blur', { bubbles: true, composed: true })); 
+      element.blur(); 
+
+      if (isAutoPlaceEnabled) {
+        // 25ms delay: Fast enough for instant feel, gives Angular just enough time to validate the token
+        setTimeout(() => {
+          let submitBtn = config.findSubmitButton(element);
+          if (submitBtn && !submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
+            
+            // Strictly prevent double-clicking the button
+            if (submitBtn.getAttribute('data-bet-locked') === '1') return;
+            submitBtn.setAttribute('data-bet-locked', '1');
+            
+            // Release the lock in 200ms. This prevents the "Invalid Token" spam, 
+            // but is completely unlocked by the time you tap for your next bet.
+            setTimeout(() => { submitBtn.removeAttribute('data-bet-locked'); }, 200); 
+
+            submitBtn.style.removeProperty('pointer-events');
+
+            // EXACTLY ONE single click sequence. No TouchEvent spam.
+            const opts = { bubbles: true, cancelable: true, view: window };
+            submitBtn.dispatchEvent(new MouseEvent('mousedown', opts));
+            submitBtn.dispatchEvent(new MouseEvent('mouseup', opts));
+            submitBtn.dispatchEvent(new MouseEvent('click', opts));
+          }
+        }, 25); 
+      }
+    } 
+    // ==============================================================
+    // ORIGINAL GLOBAL LOGIC: ALL OTHER SITES (UNTOUCHED)
+    // ==============================================================
+    else {
       element.dispatchEvent(new Event('input', { bubbles: true }));
       element.dispatchEvent(new Event('change', { bubbles: true }));
       element.dispatchEvent(new Event('blur', { bubbles: true }));
       element.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter', keyCode: 13 }));
 
-      console.log(`[Bet Assistant Debug] ✅ Injection complete. Value is now: ${element.value}`);
-    } catch (e) {
-      console.warn('[Bet Assistant Debug] ⚠️ Error during stake injection:', e);
-      element.value = amount; // Fallback
-    }
+      if (isAutoPlaceEnabled) {
+        let attempts = 0;
+        const pollStart = performance.now();
+        let observerCleaned = false;
 
-    if (isAutoPlaceEnabled) {
-      let attempts = 0;
-      const pollStart = performance.now();
-      let observerCleaned = false;
+        const doClick = (submitBtn, reason) => {
+          if (observerCleaned) return;
+          observerCleaned = true;
+          if (observer) observer.disconnect();
+          console.log(`[Bet Assistant Debug] ✅ Clicking button (${reason}) after ${(performance.now() - pollStart).toFixed(1)}ms`);
+          triggerFastClick(submitBtn);
+        };
 
-      const doClick = (submitBtn, reason) => {
-        if (observerCleaned) return;
-        observerCleaned = true;
-        if (observer) observer.disconnect();
-        console.log(`[Bet Assistant Debug] ✅ Clicking button (${reason}) after ${(performance.now() - pollStart).toFixed(1)}ms`);
-        triggerFastClick(submitBtn);
-      };
+        let observer = null;
 
-      let observer = null;
+        const trySubmit = () => {
+          let submitBtn = config.findSubmitButton(element);
 
-      const trySubmit = () => {
-        let submitBtn = config.findSubmitButton(element);
+          if (!submitBtn) {
+             return;
+          }
 
-        if (!submitBtn) {
-           if (attempts === 0) {
-               console.warn(`[Bet Assistant Debug] ❌ Could not find Submit button using findSubmitButton!`);
-           } else {
-               console.warn(`[Bet Assistant Debug] ⚠️ Submit button DISAPPEARED at attempt ${attempts}! Framework may have re-rendered.`);
-           }
-           return;
-        }
-
-        if (attempts === 0) {
-          const isDisabled = submitBtn.disabled || submitBtn.hasAttribute('disabled');
-          const inlinePtr = submitBtn.style.pointerEvents;
-          console.log(`[Bet Assistant Debug] 🔍 Initial Button State -> disabled: ${isDisabled}, inline pointer-events: "${inlinePtr}"`);
-
-          if (isDisabled) {
-            console.log(`[Bet Assistant Debug] ⏳ Button is locked by Angular. Setting up MutationObserver for instant unlock detection...`);
-
-            // MutationObserver: fire the moment Angular removes the 'disabled' attribute
-            observer = new MutationObserver((mutations) => {
-              for (const m of mutations) {
-                if (m.attributeName === 'disabled' && !submitBtn.hasAttribute('disabled')) {
-                  console.log(`[Bet Assistant Debug] ⚡ MutationObserver: disabled attr removed after ${(performance.now() - pollStart).toFixed(1)}ms! Clicking instantly.`);
-                  doClick(submitBtn, 'MutationObserver');
-                  return;
+          if (attempts === 0) {
+            const isDisabled = submitBtn.disabled || submitBtn.hasAttribute('disabled');
+            
+            if (isDisabled) {
+              observer = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                  if (m.attributeName === 'disabled' && !submitBtn.hasAttribute('disabled')) {
+                    doClick(submitBtn, 'MutationObserver');
+                    return;
+                  }
                 }
-              }
-            });
-            observer.observe(submitBtn, { attributes: true, attributeFilter: ['disabled'] });
-          } else {
-            // Button is already enabled — click immediately
-            doClick(submitBtn, 'already enabled');
-            return;
+              });
+              observer.observe(submitBtn, { attributes: true, attributeFilter: ['disabled'] });
+            } else {
+              doClick(submitBtn, 'already enabled');
+              return;
+            }
           }
-        }
 
-        // RAF polling as safety net alongside MutationObserver
-        if (!submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
-          doClick(submitBtn, `RAF poll #${attempts}`);
-        } else if (attempts < 120) { // 120 frames ≈ 2 seconds at 60fps
-          if (attempts % 30 === 0 && attempts > 0) {
-            console.log(`[Bet Assistant Debug] ⏳ Still waiting... attempt ${attempts}/120 (${(performance.now() - pollStart).toFixed(0)}ms elapsed)`);
+          if (!submitBtn.disabled && !submitBtn.hasAttribute('disabled')) {
+            doClick(submitBtn, `RAF poll #${attempts}`);
+          } else if (attempts < 120) { 
+            attempts++;
+            requestAnimationFrame(trySubmit);
+          } else {
+            doClick(submitBtn, 'force after timeout');
           }
-          attempts++;
-          requestAnimationFrame(trySubmit);
-        } else {
-          console.warn(`[Bet Assistant Debug] ⚠️ Button never unlocked after 2 seconds (attempt ${attempts}). Force-clicking...`);
-          doClick(submitBtn, 'force after timeout');
-        }
-      };
-      trySubmit();
-    } else {
-      console.log(`[Bet Assistant Debug] 🛑 Auto-Place is turned OFF in the widget. Form will stay open.`);
+        };
+        trySubmit();
+      }
     }
   }
 
